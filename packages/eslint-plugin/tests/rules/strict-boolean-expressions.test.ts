@@ -221,6 +221,10 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 21,
         },
       ],
+      output: `
+        let val = "foo";
+        let bool = val.length == 0;
+      `,
     },
     {
       code: `
@@ -247,6 +251,10 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 28,
         },
       ],
+      output: `
+        let val = 1;
+        let bool = true && val != 0;
+      `,
     },
     {
       code: `
@@ -273,6 +281,10 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 28,
         },
       ],
+      output: `
+        let val = 1;
+        let bool = true || val != 0;
+      `,
     },
     {
       code: `
@@ -311,10 +323,16 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 43,
         },
       ],
+      output: `
+        let num = 1;
+        let str = "foo"
+        let val = null;
+        let bool = true && (val || num != 0 || str.length > 0);
+      `,
     },
     {
       code: `
-        if (1) {
+        if (1 + 2) {
           return;
         }
       `,
@@ -325,6 +343,11 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 13,
         },
       ],
+      output: `
+        if (1 + 2 != 0) {
+          return;
+        }
+      `,
     },
     {
       code: `
@@ -354,6 +377,12 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 13,
         },
       ],
+      output: `
+        let item = "foo";
+        if (item.length > 0) {
+          return;
+        }
+      `,
     },
     {
       code: `
@@ -385,6 +414,13 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 22,
         },
       ],
+      output: `
+        let item1 = true;
+        let item2 = 1;
+        if (item1 && item2 != 0) {
+          return;
+        }
+      `,
     },
     {
       code: `
@@ -401,6 +437,13 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 13,
         },
       ],
+      output: `
+        let item1 = 1;
+        let item2 = true;
+        if (item1 != 0 && item2) {
+          return;
+        }
+      `,
     },
     {
       code: `
@@ -433,6 +476,13 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 22,
         },
       ],
+      output: `
+        let item1 = true;
+        let item2 = 1;
+        if (item1 || item2 != 0) {
+          return;
+        }
+      `,
     },
     {
       code: `
@@ -449,6 +499,13 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 13,
         },
       ],
+      output: `
+        let item1 = 1;
+        let item2 = true;
+        if (item1 != 0 || item2) {
+          return;
+        }
+      `,
     },
     {
       code: `
@@ -468,15 +525,18 @@ ruleTester.run('strict-boolean-expressions', rule, {
     },
     {
       code: `
-        const bool = "foo" ? true : false;
+        const bool = ("foo" + "bar") ? true : false;
       `,
       errors: [
         {
           messageId: 'conditionErrorString',
           line: 2,
-          column: 22,
+          column: 23,
         },
       ],
+      output: `
+        const bool = ("foo" + "bar".length > 0) ? true : false;
+      `,
     },
     {
       code: `
@@ -502,6 +562,10 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 22,
         },
       ],
+      output: `
+        let item = 1;
+        const bool = item != 0 ? true : false;
+      `,
     },
     {
       code: `
@@ -529,6 +593,11 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 22,
         },
       ],
+      output: `
+        let item1 = 1;
+        let item2 = false;
+        const bool = item1 != 0 && item2 ? true : false;
+      `,
     },
     {
       code: `
@@ -543,6 +612,11 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 31,
         },
       ],
+      output: `
+        let item1 = true;
+        let item2 = 1;
+        const bool = item1 && item2 != 0 ? true : false;
+      `,
     },
     {
       code: `
@@ -571,6 +645,11 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 22,
         },
       ],
+      output: `
+        let item1 = 1;
+        let item2 = false;
+        const bool = item1 != 0 || item2 ? true : false;
+      `,
     },
     {
       code: `
@@ -585,6 +664,11 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 31,
         },
       ],
+      output: `
+        let item1 = true;
+        let item2 = 1;
+        const bool = item1 || item2 != 0 ? true : false;
+      `,
     },
     {
       code: `
@@ -602,17 +686,24 @@ ruleTester.run('strict-boolean-expressions', rule, {
     },
     {
       code: `
-        for (let i = 0; 1; i++) {
+        const fn = () => 1
+        for (let i = 0; fn(); i++) {
           return;
         }
       `,
       errors: [
         {
           messageId: 'conditionErrorNumber',
-          line: 2,
+          line: 3,
           column: 25,
         },
       ],
+      output: `
+        const fn = () => 1
+        for (let i = 0; fn() != 0; i++) {
+          return;
+        }
+      `,
     },
     {
       code: `
@@ -642,6 +733,12 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 25,
         },
       ],
+      output: `
+        let bool = 1;
+        for (let i = 0; bool != 0; i++) {
+          return;
+        }
+      `,
     },
     {
       code: `
@@ -673,6 +770,13 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 25,
         },
       ],
+      output: `
+        let bool1 = "foo";
+        let bool2 = true;
+        for (let i = 0; bool1.length > 0 && bool2; i++) {
+          return;
+        }
+      `,
     },
     {
       code: `
@@ -705,6 +809,13 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 25,
         },
       ],
+      output: `
+        let bool1 = 1;
+        let bool2 = true;
+        for (let i = 0; bool1 != 0 || bool2; i++) {
+          return;
+        }
+      `,
     },
     {
       code: `
@@ -724,7 +835,7 @@ ruleTester.run('strict-boolean-expressions', rule, {
     },
     {
       code: `
-        while (1) {
+        while (1 + 2 * 3) {
           return;
         }
       `,
@@ -735,6 +846,11 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 16,
         },
       ],
+      output: `
+        while (1 + 2 * 3 != 0) {
+          return;
+        }
+      `,
     },
     {
       code: `
@@ -752,6 +868,27 @@ ruleTester.run('strict-boolean-expressions', rule, {
     },
     {
       code: `
+        declare let obj: {a: string} | null
+        while (obj) {
+          return;
+        }
+      `,
+      errors: [
+        {
+          messageId: 'conditionErrorNullableObject',
+          line: 3,
+          column: 16,
+        },
+      ],
+      output: `
+        declare let obj: {a: string} | null
+        while (obj != null) {
+          return;
+        }
+      `,
+    },
+    {
+      code: `
         let bool = 1;
         while (bool) {
           return;
@@ -764,6 +901,12 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 16,
         },
       ],
+      output: `
+        let bool = 1;
+        while (bool != 0) {
+          return;
+        }
+      `,
     },
     {
       code: `
@@ -795,6 +938,13 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 16,
         },
       ],
+      output: `
+        let bool1 = 1;
+        let bool2 = true;
+        while (bool1 != 0 && bool2) {
+          return;
+        }
+      `,
     },
     {
       code: `
@@ -827,6 +977,13 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 16,
         },
       ],
+      output: `
+        let bool1 = 1;
+        let bool2 = true;
+        while (bool1 != 0 || bool2) {
+          return;
+        }
+      `,
     },
     {
       code: `
@@ -977,6 +1134,9 @@ ruleTester.run('strict-boolean-expressions', rule, {
           column: 58,
         },
       ],
+      output: `
+        function foo<T extends number>(arg: T) { return arg == 0; }
+      `,
     },
     {
       errors: [
@@ -999,6 +1159,11 @@ ruleTester.run('strict-boolean-expressions', rule, {
       code: `
         const f1 = (x: boolean | null | undefined) => x ? 1 : 0;
         const f2 = (x?: boolean) => x ? 1 : 0;
+        const f3 = (x: boolean | {}) => x ? 1 : 0;
+      `,
+      output: `
+        const f1 = (x: boolean | null | undefined) => x ?? false ? 1 : 0;
+        const f2 = (x?: boolean) => x ?? false ? 1 : 0;
         const f3 = (x: boolean | {}) => x ? 1 : 0;
       `,
     },
@@ -1209,6 +1374,12 @@ const objAndBool = obj && bool;
         const f1 = (x: Type) => x ? 1 : 0;
         const f2 = (x?: Type) => x ? 1 : 0;
         const f3 = (x?: Type | null) => x ? 1 : 0;
+      `,
+      output: `
+        type Type = { a: string; };
+        const f1 = (x: Type) => x ? 1 : 0;
+        const f2 = (x?: Type) => x != null ? 1 : 0;
+        const f3 = (x?: Type | null) => x != null ? 1 : 0;
       `,
     },
   ],

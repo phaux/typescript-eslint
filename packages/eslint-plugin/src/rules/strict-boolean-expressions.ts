@@ -1,10 +1,11 @@
 import {
-  TSESTree,
   AST_NODE_TYPES,
+  TSESTree,
 } from '@typescript-eslint/experimental-utils';
-import * as ts from 'typescript';
 import * as tsutils from 'tsutils';
+import * as ts from 'typescript';
 import * as util from '../util';
+import { getWrappingFixer, Precedence } from '../util';
 
 type Options = [
   {
@@ -24,7 +25,8 @@ type MessageId =
   | 'conditionErrorNumber'
   | 'conditionErrorNullableNumber'
   | 'conditionErrorObject'
-  | 'conditionErrorNullableObject';
+  | 'conditionErrorNullableObject'
+  | 'conditionFixAnyCastBoolean';
 
 export default util.createRule<Options, MessageId>({
   name: 'strict-boolean-expressions',
@@ -36,6 +38,7 @@ export default util.createRule<Options, MessageId>({
       recommended: false,
       requiresTypeChecking: true,
     },
+    fixable: 'code',
     schema: [
       {
         type: 'object',
@@ -84,6 +87,7 @@ export default util.createRule<Options, MessageId>({
       conditionErrorNullableObject:
         'Unexpected nullable object value in conditional. ' +
         'An explicit null check is required.',
+      conditionFixAnyCastBoolean: 'Add explicit boolean cast',
     },
   },
   defaultOptions: [
@@ -125,6 +129,14 @@ export default util.createRule<Options, MessageId>({
 
     function checkUnaryLogicalExpression(node: TSESTree.UnaryExpression): void {
       checkNode(node.argument, true);
+    }
+
+    /** @returns `true` when the node is contained within an unary logical negation expression */
+    function isNegatedNode(node: TSESTree.Node): boolean {
+      return (
+        node.parent?.type === AST_NODE_TYPES.UnaryExpression &&
+        node.parent?.operator === '!'
+      );
     }
 
     /**
@@ -172,7 +184,7 @@ export default util.createRule<Options, MessageId>({
 
       const tsNode = service.esTreeNodeToTSNodeMap.get(node);
       const type = util.getConstrainedTypeAtLocation(checker, tsNode);
-      let messageId: MessageId | undefined;
+      const sourceCode = context.getSourceCode();
 
       const types = tsutils.isTypeFlagSet(type, ts.TypeFlags.Union)
         ? inspectVariantTypes((type as ts.UnionType).types)
@@ -190,68 +202,168 @@ export default util.createRule<Options, MessageId>({
       // nullish
       else if (is('nullish')) {
         // condition is always false
-        messageId = 'conditionErrorNullish';
+        context.report({ node, messageId: 'conditionErrorNullish' });
+        return true;
       }
       // nullable boolean
       else if (is('nullish', 'boolean')) {
         if (!options.allowNullable) {
-          messageId = 'conditionErrorNullableBoolean';
+          context.report({
+            node,
+            messageId: 'conditionErrorNullableBoolean',
+            fix: getWrappingFixer({
+              sourceCode,
+              node,
+              precedence: Precedence.NullishCoalescing,
+              change: code => `${code} ?? false`,
+            }),
+          });
+          return true;
         }
       }
       // string
       else if (is('string')) {
-        messageId = 'conditionErrorString';
+        if (isNegatedNode(node)) {
+          context.report({
+            node,
+            messageId: 'conditionErrorString',
+            fix: getWrappingFixer({
+              sourceCode,
+              node: node.parent!,
+              innerNode: node,
+              precedence: Precedence.Equality,
+              change: code => `${code}.length == 0`,
+            }),
+          });
+        } else {
+          context.report({
+            node,
+            messageId: 'conditionErrorString',
+            fix: getWrappingFixer({
+              sourceCode,
+              node,
+              precedence: Precedence.Relational,
+              change: code => `${code}.length > 0`,
+            }),
+          });
+        }
+        return true;
       }
       // nullable string
       else if (is('nullish', 'string')) {
-        messageId = 'conditionErrorNullableString';
+        context.report({ node, messageId: 'conditionErrorNullableString' });
+        return true;
       }
       // number
       else if (is('number')) {
-        messageId = 'conditionErrorNumber';
+        if (isNegatedNode(node)) {
+          context.report({
+            node,
+            messageId: 'conditionErrorNumber',
+            fix: getWrappingFixer({
+              sourceCode,
+              node: node.parent!,
+              innerNode: node,
+              precedence: Precedence.Equality,
+              change: code => `${code} == 0`,
+            }),
+          });
+        } else {
+          context.report({
+            node,
+            messageId: 'conditionErrorNumber',
+            fix: getWrappingFixer({
+              sourceCode,
+              node,
+              precedence: Precedence.Equality,
+              change: code => `${code} != 0`,
+            }),
+          });
+        }
+        return true;
       }
       // nullable number
       else if (is('nullish', 'number')) {
-        messageId = 'conditionErrorNullableNumber';
+        context.report({ node, messageId: 'conditionErrorNullableNumber' });
+        return true;
       }
       // object
       else if (is('object')) {
         // condition is always true
         if (!options.allowSafe) {
-          messageId = 'conditionErrorObject';
+          context.report({ node, messageId: 'conditionErrorObject' });
+          return true;
         }
       }
       // nullable object
       else if (is('nullish', 'object')) {
         if (!options.allowSafe || !options.allowNullable) {
-          messageId = 'conditionErrorNullableObject';
+          if (isNegatedNode(node)) {
+            context.report({
+              node,
+              messageId: 'conditionErrorNullableObject',
+              fix: getWrappingFixer({
+                sourceCode,
+                node: node.parent!,
+                innerNode: node,
+                precedence: Precedence.Equality,
+                change: code => `${code} == null`,
+              }),
+            });
+          } else {
+            context.report({
+              node,
+              messageId: 'conditionErrorNullableObject',
+              fix: getWrappingFixer({
+                sourceCode,
+                node,
+                precedence: Precedence.Equality,
+                change: code => `${code} != null`,
+              }),
+            });
+          }
+          return true;
         }
       }
       // boolean/object
       else if (is('boolean', 'object')) {
         if (!options.allowSafe) {
-          messageId = 'conditionErrorOther';
+          context.report({ node, messageId: 'conditionErrorOther' });
+          return true;
         }
       }
       // nullable boolean/object
       else if (is('nullish', 'boolean', 'object')) {
         if (!options.allowSafe || !options.allowNullable) {
-          messageId = 'conditionErrorOther';
+          context.report({ node, messageId: 'conditionErrorOther' });
+          return true;
         }
       }
       // any
       else if (is('any')) {
-        messageId = 'conditionErrorAny';
+        context.report({
+          node,
+          messageId: 'conditionErrorAny',
+          suggest: [
+            {
+              messageId: 'conditionFixAnyCastBoolean',
+              fix: getWrappingFixer({
+                sourceCode,
+                node,
+                precedence: Precedence.Call,
+                change: code => `Boolean(${code})`,
+              }),
+            },
+          ],
+        });
+        return true;
       }
       // other
       else {
-        messageId = 'conditionErrorOther';
-      }
-
-      if (messageId != null) {
-        context.report({ node, messageId });
+        context.report({ node, messageId: 'conditionErrorOther' });
         return true;
       }
+
       return false;
     }
 
