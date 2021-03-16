@@ -126,9 +126,10 @@ export default util.createRule<Options, MessageIds>({
 
       if (
         node.parent &&
-        (node.parent.type === AST_NODE_TYPES.Property ||
-          node.parent.type === AST_NODE_TYPES.MethodDefinition) &&
-        (node.parent.kind === 'get' || node.parent.kind === 'set')
+        [AST_NODE_TYPES.Property, AST_NODE_TYPES.MethodDefinition].includes(
+          node.parent.type,
+        ) &&
+        ['get', 'set'].includes(node.parent.kind)
       ) {
         // Getters and setters can't be async
         return;
@@ -158,6 +159,7 @@ export default util.createRule<Options, MessageIds>({
           ) {
             return fixer.insertTextBefore(node.parent.key, 'async ');
           }
+
           return fixer.insertTextBefore(node, 'async ');
         },
       });
@@ -191,6 +193,7 @@ export default util.createRule<Options, MessageIds>({
           }
           return;
         }
+
         if (checkFunctionExpressions) {
           validateNode(node);
         }
